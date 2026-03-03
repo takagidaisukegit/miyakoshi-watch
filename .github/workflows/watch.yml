@@ -2,11 +2,11 @@ name: miyakoshi-watch
 
 on:
   schedule:
-    - cron: "0 */2 * * *"   # 2時間ごと (UTC)
-  workflow_dispatch:          # 手動実行ボタン
+    - cron: "0 */2 * * *"
+  workflow_dispatch:
 
 permissions:
-  contents: write             # git push に必要
+  contents: write
 
 jobs:
   watch:
@@ -16,8 +16,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -32,15 +30,6 @@ jobs:
         env:
           LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
           LINE_USER_ID: ${{ secrets.LINE_USER_ID }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: python src/main.py
-
-      - name: Update snapshots
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          SHA=$(gh api repos/${{ github.repository }}/contents/data/snapshots.json --jq '.sha')
-          gh api repos/${{ github.repository }}/contents/data/snapshots.json \
-            --method PUT \
-            -f message="chore: update snapshots [skip ci]" \
-            -f content="$(base64 -w 0 data/snapshots.json)" \
-            -f sha="$SHA"
