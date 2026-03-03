@@ -34,11 +34,13 @@ jobs:
           LINE_USER_ID: ${{ secrets.LINE_USER_ID }}
         run: python src/main.py
 
-      - name: Commit and push snapshots
+      - name: Update snapshots
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git pull --rebase
-          git add data/snapshots.json
-          git diff --staged --quiet || git commit -m "chore: update snapshots [skip ci]"
-          git push
+          SHA=$(gh api repos/${{ github.repository }}/contents/data/snapshots.json --jq '.sha')
+          gh api repos/${{ github.repository }}/contents/data/snapshots.json \
+            --method PUT \
+            -f message="chore: update snapshots [skip ci]" \
+            -f content="$(base64 -w 0 data/snapshots.json)" \
+            -f sha="$SHA"
