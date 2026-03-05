@@ -2,7 +2,19 @@ name: miyakoshi-watch
 
 on:
   schedule:
-    - cron: "0 */2 * * *"
+    - cron: "2 23 * * *"  #  8:02 JST
+    - cron: "2 0 * * *"   #  9:02 JST
+    - cron: "2 1 * * *"   # 10:02 JST
+    - cron: "2 2 * * *"   # 11:02 JST
+    - cron: "2 3 * * *"   # 12:02 JST
+    - cron: "2 4 * * *"   # 13:02 JST
+    - cron: "2 5 * * *"   # 14:02 JST
+    - cron: "2 6 * * *"   # 15:02 JST
+    - cron: "32 6 * * *"  # 15:32 JST
+    - cron: "2 7 * * *"   # 16:02 JST
+    - cron: "2 8 * * *"   # 17:02 JST
+    - cron: "2 10 * * *"  # 19:02 JST
+    - cron: "2 14 * * *"  # 23:02 JST
   workflow_dispatch:
 
 permissions:
