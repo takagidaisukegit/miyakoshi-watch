@@ -9,6 +9,7 @@ from bs4 import BeautifulSoup
 BASE_URL = "https://www.miyakoshi-holdings.com"
 MAX_PAGES = 50
 CRAWL_DELAY = 1.0
+TEXT_MAX_CHARS = 5000
 HEADERS = {
     "User-Agent": "miyakoshi-watch/1.0 (+https://github.com/miyakoshi-watch)"
 }
@@ -86,7 +87,7 @@ def crawl(base_url: str = BASE_URL, max_pages: int = MAX_PAGES) -> dict[str, dic
         text = extract_text(html)
         visited[url] = {
             "hash": hash_text(text),
-            "text": text,
+            "text": text[:TEXT_MAX_CHARS],
         }
         print(f"[OK] crawled ({len(visited)}/{max_pages}): {url}")
 
