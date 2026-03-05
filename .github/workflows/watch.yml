@@ -17,6 +17,10 @@ on:
     - cron: "2 14 * * *"  # 23:02 JST
   workflow_dispatch:
 
+concurrency:
+  group: miyakoshi-watch
+  cancel-in-progress: false
+
 permissions:
   contents: write
 
