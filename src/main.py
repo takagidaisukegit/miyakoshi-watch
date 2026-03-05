@@ -41,12 +41,10 @@ def push_snapshots_to_github(data: dict) -> None:
         "Accept": "application/vnd.github+json",
     }
 
-    # 現在のファイルのSHAを取得
     req = urllib.request.Request(url, headers=headers)
     with urllib.request.urlopen(req) as resp:
         current_sha = json.loads(resp.read())["sha"]
 
-    # ファイルを更新
     payload = json.dumps({
         "message": "chore: update snapshots [skip ci]",
         "content": base64.b64encode(content).decode(),
@@ -67,7 +65,14 @@ def main():
     changes = []
     for url, data in current.items():
         if url not in old_snapshots:
-            # 新規発見ページは変更扱いにしない
+            if not is_baseline:
+                # ベースライン確立後に新規ページが出現した場合は変更として通知
+                print(f"[NEW PAGE] {url}")
+                changes.append({
+                    "url": url,
+                    "old_text": "",
+                    "new_text": data["text"],
+                })
             continue
         if old_snapshots[url]["hash"] != data["hash"]:
             print(f"[CHANGED] {url}")
