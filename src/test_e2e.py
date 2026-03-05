@@ -1,37 +1,68 @@
 """
-E2Eテスト: サイトをクロールし、変更検知からLINE通知までの一連の流れをテストする。
-snapshots.json を書き換える必要はなく、擬似的な「旧テキスト」を使って差分を生成する。
+E2Eテスト: ホームページの更新検知からLINE通知までの流れをテストする。
+
+テスト方法:
+  1. 実際にサイトをクロール（1ページ）して「現在のハッシュ」を取得
+  2. 旧スナップショットのハッシュを別の値に差し替えて「サイトが更新された」状態を再現
+  3. main.py と完全に同一のハッシュ比較ロジックで変更を検知
+  4. LINEに通知を送信
+
+注意: snapshots.json は書き換えない。本番の監視には影響なし。
 """
 from scraper import crawl
 from differ import extract_summary
 from notifier import send_line_message, build_message
 
-TEST_URL = "https://www.miyakoshi-holdings.com"
+TARGET_URL = "https://www.miyakoshi-holdings.com"
+FAKE_OLD_HASH = "0" * 64  # 実際のハッシュとは必ず一致しない値
 
 
 def main():
-    print("[E2E] メインページをクロール中...")
-    current = crawl(base_url=TEST_URL, max_pages=1)
-
+    print("[E2E] 現在のページを取得中...")
+    current = crawl(base_url=TARGET_URL, max_pages=1)
     if not current:
         print("[E2E ERROR] クロール失敗")
         return
 
     url = list(current.keys())[0]
-    new_text = current[url]["text"]
+    print(f"[E2E] 対象URL: {url}")
 
-    # 旧テキストを空文字にして必ず差分が生じるようにする
-    fake_old_text = "(旧バージョン: テスト用のダミーテキスト)"
+    # ---- 旧スナップショットを偽装 ----
+    # 旧ハッシュを別の値にすることで「前回からサイトが更新された」状態を再現する
+    old_snapshots = {
+        url: {
+            "hash": FAKE_OLD_HASH,
+            "text": "(E2Eテスト: このURLは以前別のコンテンツを持っていた)",
+        }
+    }
 
-    summary = extract_summary(fake_old_text, new_text)
-    notifications = [{"url": url, "summary": summary}]
+    # ---- main.py と完全に同一の変更検知ロジック ----
+    changes = []
+    for u, data in current.items():
+        if u not in old_snapshots:
+            continue
+        if old_snapshots[u]["hash"] != data["hash"]:
+            print(f"[E2E] 変更検知: {u}")
+            changes.append({
+                "url": u,
+                "old_text": old_snapshots[u]["text"],
+                "new_text": data["text"],
+            })
 
-    message = build_message(notifications)
-    message = "[E2Eテスト]\n" + message
+    if not changes:
+        print("[E2E ERROR] 変更が検知されませんでした（ロジックに問題がある可能性）")
+        return
 
-    print(f"[E2E] LINE通知送信中...\n---\n{message}\n---")
+    # ---- 通知送信 ----
+    notifications = []
+    for ch in changes:
+        summary = extract_summary(ch["old_text"], ch["new_text"])
+        notifications.append({"url": ch["url"], "summary": summary})
+
+    message = "[E2Eテスト]\n" + build_message(notifications)
+    print(f"[E2E] 送信内容:\n{message}")
     send_line_message(message)
-    print("[E2E] 完了。LINEに通知が届いているか確認してください。")
+    print("[E2E] 完了。LINEを確認してください。")
 
 
 if __name__ == "__main__":
