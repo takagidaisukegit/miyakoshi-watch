@@ -2,6 +2,7 @@ import base64
 import json
 import os
 import sys
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -30,8 +31,12 @@ def push_snapshots_to_github(data: dict) -> None:
     """GitHub API経由でsnapshots.jsonを直接更新（git push不要）"""
     token = os.environ.get("GITHUB_TOKEN")
     repo = os.environ.get("GITHUB_REPOSITORY")
+
+    print(f"[API] GITHUB_TOKEN set: {bool(token)}, GITHUB_REPOSITORY: {repo!r}")
+
     if not token or not repo:
-        return  # ローカル実行時はスキップ
+        print("[API] WARN: env vars missing, skipping GitHub update")
+        return
 
     content = json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")
     url = f"https://api.github.com/repos/{repo}/contents/data/snapshots.json"
@@ -41,18 +46,30 @@ def push_snapshots_to_github(data: dict) -> None:
         "Accept": "application/vnd.github+json",
     }
 
-    req = urllib.request.Request(url, headers=headers)
-    with urllib.request.urlopen(req) as resp:
-        current_sha = json.loads(resp.read())["sha"]
+    try:
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req) as resp:
+            file_info = json.loads(resp.read())
+            current_sha = file_info["sha"]
+        print(f"[API] current sha: {current_sha[:7]}")
+    except urllib.error.HTTPError as e:
+        body = e.read().decode()
+        print(f"[API] ERROR getting file SHA: {e.code} {body}")
+        raise
 
-    payload = json.dumps({
-        "message": "chore: update snapshots [skip ci]",
-        "content": base64.b64encode(content).decode(),
-        "sha": current_sha,
-    }).encode()
-    req = urllib.request.Request(url, data=payload, headers=headers, method="PUT")
-    with urllib.request.urlopen(req) as resp:
-        print(f"[API] snapshots.json updated: {resp.status}")
+    try:
+        payload = json.dumps({
+            "message": "chore: update snapshots [skip ci]",
+            "content": base64.b64encode(content).decode(),
+            "sha": current_sha,
+        }).encode()
+        req = urllib.request.Request(url, data=payload, headers=headers, method="PUT")
+        with urllib.request.urlopen(req) as resp:
+            print(f"[API] snapshots.json updated: {resp.status}")
+    except urllib.error.HTTPError as e:
+        body = e.read().decode()
+        print(f"[API] ERROR updating file: {e.code} {body}")
+        raise
 
 
 def main():
@@ -66,7 +83,6 @@ def main():
     for url, data in current.items():
         if url not in old_snapshots:
             if not is_baseline:
-                # ベースライン確立後に新規ページが出現した場合は変更として通知
                 print(f"[NEW PAGE] {url}")
                 changes.append({
                     "url": url,
